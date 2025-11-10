@@ -1,98 +1,95 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Plus, Search, Edit, DollarSign, Calendar, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useAdminStore } from "@/stores/admin-store";
-import { AdminLayout } from "@/components/layouts/admin-layout";
-import { Payment } from "@/types";
+import type React from "react"
+
+import { useState } from "react"
+import { Plus, Search, Edit, DollarSign, Calendar, User, Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useAdminStore } from "@/stores/admin-store"
+import { AdminLayout } from "@/components/layouts/admin-layout"
+import type { Payment } from "@/types"
+
+const USD_TO_UZS = 12500 // Currency conversion rate
 
 export default function PaymentsPage() {
-  const { payments, students, addPayment, updatePayment } = useAdminStore();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const { payments, students, addPayment, updatePayment, getStudentPendingPayment, completePayment } = useAdminStore()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
   const [formData, setFormData] = useState({
     studentId: "",
     studentName: "",
     amount: "",
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     status: "pending" as "completed" | "pending" | "failed",
     method: "cash" as "cash" | "card" | "bank",
-  });
+    currency: "UZS" as "UZS" | "USD",
+    month: new Date().toISOString().slice(0, 7), // Add month tracking
+    paidAmount: "",
+  })
 
   const filteredPayments = payments.filter((payment) =>
-    payment.studentName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    payment.studentName.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
-  const totalRevenue = payments
-    .filter((p) => p.status === "completed")
-    .reduce((sum, p) => sum + p.amount, 0);
+  const totalRevenue = payments.filter((p) => p.status === "completed").reduce((sum, p) => sum + p.amount, 0)
 
-  const pendingPayments = payments.filter((p) => p.status === "pending").length;
+  const pendingPayments = payments.filter((p) => p.status === "pending").length
+
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const completedThisMonth = payments.filter((p) => p.status === "completed" && p.month === currentMonth).length
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
+
+    const amountInUZS = formData.currency === "USD" ? Number(formData.amount) * USD_TO_UZS : Number(formData.amount)
 
     const paymentData = {
       studentId: formData.studentId,
       studentName: formData.studentName,
-      amount: Number(formData.amount),
+      amount: amountInUZS,
       date: formData.date,
       status: formData.status,
       method: formData.method,
-    };
-
-    if (editingPayment) {
-      updatePayment(editingPayment.id, paymentData);
-    } else {
-      addPayment(paymentData);
+      currency: "UZS" as const, // Always store as UZS
+      month: formData.month,
+      paidAmount: formData.status === "completed" ? amountInUZS : undefined,
     }
 
-    resetForm();
-  };
+    if (editingPayment) {
+      updatePayment(editingPayment.id, paymentData)
+    } else {
+      addPayment(paymentData)
+    }
+
+    resetForm()
+  }
 
   const resetForm = () => {
     setFormData({
       studentId: "",
       studentName: "",
       amount: "",
-      date: "",
+      date: new Date().toISOString().split("T")[0],
       status: "pending",
       method: "cash",
-    });
-    setEditingPayment(null);
-    setIsDialogOpen(false);
-  };
+      currency: "UZS",
+      month: new Date().toISOString().slice(0, 7),
+      paidAmount: "",
+    })
+    setEditingPayment(null)
+    setIsDialogOpen(false)
+  }
 
   const handleEdit = (payment: Payment) => {
-    setEditingPayment(payment);
+    setEditingPayment(payment)
     setFormData({
       studentId: payment.studentId,
       studentName: payment.studentName,
@@ -100,56 +97,68 @@ export default function PaymentsPage() {
       date: payment.date,
       status: payment.status,
       method: payment.method,
-    });
-    setIsDialogOpen(true);
-  };
+      currency: "UZS",
+      month: payment.month,
+      paidAmount: payment.paidAmount?.toString() || "",
+    })
+    setIsDialogOpen(true)
+  }
 
   const handleStudentSelect = (studentId: string) => {
-    const student = students.find((s) => s.id === studentId);
+    const student = students.find((s) => s.id === studentId)
     if (student) {
+      const feeInUZS = (student.fee || 0) * USD_TO_UZS
+
       setFormData({
         ...formData,
         studentId: studentId,
         studentName: student.name,
-        amount: student.fee.toString(),
-      });
+        amount: feeInUZS.toString(),
+      })
     }
-  };
+  }
+
+  const handleCompletePayment = (paymentId: string, studentId: string) => {
+    const pendingPayment = getStudentPendingPayment(studentId)
+    if (pendingPayment) {
+      completePayment(paymentId, pendingPayment.amount)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800"
       case "pending":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 text-yellow-800"
       case "failed":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800"
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800"
     }
-  };
+  }
 
   const getMethodColor = (method: string) => {
     switch (method) {
       case "cash":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800"
       case "card":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-100 text-purple-800"
       case "bank":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800"
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800"
     }
-  };
+  }
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
+        {/* ... existing header code ... */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-            <p className="text-gray-600">Track student payments and revenue</p>
+            <p className="text-gray-600">Track student payments and revenue (All amounts in UZS)</p>
           </div>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -161,40 +170,51 @@ export default function PaymentsPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>
-                  {editingPayment ? "Edit Payment" : "Add New Payment"}
-                </DialogTitle>
+                <DialogTitle>{editingPayment ? "Edit Payment" : "Add New Payment"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="student">Student</Label>
-                  <Select
-                    value={formData.studentId}
-                    onValueChange={handleStudentSelect}
-                  >
+                  <Select value={formData.studentId} onValueChange={handleStudentSelect}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select student" />
                     </SelectTrigger>
                     <SelectContent>
                       {students.map((student) => (
                         <SelectItem key={student.id} value={student.id}>
-                          {student.name} - {student.course}
+                          {student.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="amount">Amount ($)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({ ...formData, amount: e.target.value })
-                    }
-                    required
-                  />
+                {/* ... existing amount input ... */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="amount">Amount</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="currency">Currency</Label>
+                    <Select
+                      value={formData.currency}
+                      onValueChange={(value: "UZS" | "USD") => setFormData({ ...formData, currency: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD (→ UZS)</SelectItem>
+                        <SelectItem value="UZS">UZS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="date">Date</Label>
@@ -202,9 +222,17 @@ export default function PaymentsPage() {
                     id="date"
                     type="date"
                     value={formData.date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, date: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="month">Month</Label>
+                  <Input
+                    id="month"
+                    type="month"
+                    value={formData.month}
+                    onChange={(e) => setFormData({ ...formData, month: e.target.value })}
                     required
                   />
                 </div>
@@ -213,9 +241,9 @@ export default function PaymentsPage() {
                     <Label htmlFor="status">Status</Label>
                     <Select
                       value={formData.status}
-                      onValueChange={(
-                        value: "completed" | "pending" | "failed"
-                      ) => setFormData({ ...formData, status: value })}
+                      onValueChange={(value: "completed" | "pending" | "failed") =>
+                        setFormData({ ...formData, status: value })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -231,9 +259,7 @@ export default function PaymentsPage() {
                     <Label htmlFor="method">Method</Label>
                     <Select
                       value={formData.method}
-                      onValueChange={(value: "cash" | "card" | "bank") =>
-                        setFormData({ ...formData, method: value })
-                      }
+                      onValueChange={(value: "cash" | "card" | "bank") => setFormData({ ...formData, method: value })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -260,54 +286,53 @@ export default function PaymentsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Revenue
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${totalRevenue.toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                From completed payments
-              </p>
+              <div className="text-2xl font-bold">{(totalRevenue / 1000).toLocaleString()} K</div>
+              <p className="text-xs text-muted-foreground">Completed (UZS)</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Pending Payments
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{pendingPayments}</div>
-              <p className="text-xs text-muted-foreground">Awaiting payment</p>
+              <p className="text-xs text-muted-foreground">Awaiting</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Payments
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">This Month</CardTitle>
+              <Check className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{completedThisMonth}</div>
+              <p className="text-xs text-muted-foreground">Completed</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Records</CardTitle>
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{payments.length}</div>
-              <p className="text-xs text-muted-foreground">
-                All payment records
-              </p>
+              <p className="text-xs text-muted-foreground">All records</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search */}
+        {/* ... existing search code ... */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
@@ -328,7 +353,8 @@ export default function PaymentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>Amount (UZS)</TableHead>
+                  <TableHead>Month</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Method</TableHead>
                   <TableHead>Status</TableHead>
@@ -338,27 +364,27 @@ export default function PaymentsPage() {
               <TableBody>
                 {filteredPayments.map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-medium">
-                      {payment.studentName}
-                    </TableCell>
-                    <TableCell>${payment.amount}</TableCell>
+                    <TableCell className="font-medium">{payment.studentName}</TableCell>
+                    <TableCell>{(payment.amount / 1000).toFixed(1)} K</TableCell>
+                    <TableCell>{payment.month}</TableCell>
                     <TableCell>{payment.date}</TableCell>
                     <TableCell>
-                      <Badge className={getMethodColor(payment.method)}>
-                        {payment.method}
-                      </Badge>
+                      <Badge className={getMethodColor(payment.method)}>{payment.method}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(payment.status)}>
-                        {payment.status}
-                      </Badge>
+                      <Badge className={getStatusColor(payment.status)}>{payment.status}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(payment)}
-                      >
+                    <TableCell className="flex gap-2">
+                      {payment.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCompletePayment(payment.id, payment.studentId)}
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(payment)}>
                         <Edit className="w-4 h-4" />
                       </Button>
                     </TableCell>
@@ -376,5 +402,5 @@ export default function PaymentsPage() {
         )}
       </div>
     </AdminLayout>
-  );
+  )
 }

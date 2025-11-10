@@ -11,6 +11,7 @@ interface AdminState {
   payments: Payment[]
   products: Product[]
   activities: Activity[]
+  groups: any[] // Add groups array
 
   // Teacher CRUD
   addTeacher: (teacher: Omit<Teacher, "id">) => void
@@ -22,9 +23,19 @@ interface AdminState {
   updateStudent: (id: string, student: Partial<Student>) => void
   deleteStudent: (id: string) => void
 
-  // Payment CRUD
+  // Payment CRUD with enhanced logic
   addPayment: (payment: Omit<Payment, "id">) => void
   updatePayment: (id: string, payment: Partial<Payment>) => void
+  getStudentPendingPayment: (studentId: string) => Payment | undefined
+  getStudentCompletedPayments: (studentId: string) => Payment[]
+  completePayment: (paymentId: string, paidAmount: number) => void
+
+  // Group management
+  addGroup: (group: any) => void
+  updateGroup: (id: string, group: any) => void
+  deleteGroup: (id: string) => void
+  assignStudentToGroup: (groupId: string, studentId: string) => void
+  removeStudentFromGroup: (groupId: string, studentId: string) => void
 
   // Product CRUD
   addProduct: (product: Omit<Product, "id">) => void
@@ -43,6 +54,7 @@ export const useAdminStore = create<AdminState>()(
       payments: mockPayments,
       products: mockProducts,
       activities: mockActivities,
+      groups: [], // Initialize groups array
 
       // Teacher CRUD
       addTeacher: (teacher) => {
@@ -122,7 +134,7 @@ export const useAdminStore = create<AdminState>()(
         }))
       },
 
-      // Payment CRUD
+      // Payment CRUD with enhanced logic
       addPayment: (payment) => {
         const newPayment = { ...payment, id: Date.now().toString() }
         set((state) => ({
@@ -131,7 +143,7 @@ export const useAdminStore = create<AdminState>()(
             {
               id: Date.now().toString(),
               type: "payment",
-              message: `Payment received from ${payment.studentName}`,
+              message: `Payment ${payment.status === "pending" ? "pending" : "received"} from ${payment.studentName}`,
               timestamp: "Just now",
             },
             ...state.activities,
@@ -142,6 +154,80 @@ export const useAdminStore = create<AdminState>()(
       updatePayment: (id, updates) => {
         set((state) => ({
           payments: state.payments.map((payment) => (payment.id === id ? { ...payment, ...updates } : payment)),
+        }))
+      },
+
+      getStudentPendingPayment: (studentId: string) => {
+        return get().payments.find((p) => p.studentId === studentId && p.status === "pending")
+      },
+
+      getStudentCompletedPayments: (studentId: string) => {
+        return get().payments.filter((p) => p.studentId === studentId && p.status === "completed")
+      },
+
+      completePayment: (paymentId: string, paidAmount: number) => {
+        const payment = get().payments.find((p) => p.id === paymentId)
+        if (!payment) return
+
+        set((state) => ({
+          payments: state.payments.map((p) =>
+            p.id === paymentId
+              ? { ...p, status: "completed" as const, paidAmount, date: new Date().toISOString().split("T")[0] }
+              : p,
+          ),
+          activities: [
+            {
+              id: Date.now().toString(),
+              type: "payment",
+              message: `Payment completed for ${payment.studentName} (${paidAmount} ${payment.currency})`,
+              timestamp: "Just now",
+            },
+            ...state.activities,
+          ],
+        }))
+      },
+
+      // Group management
+      addGroup: (group) => {
+        const newGroup = { ...group, id: Date.now().toString(), students: [] }
+        set((state) => ({
+          groups: [...state.groups, newGroup],
+        }))
+      },
+
+      updateGroup: (id, updates) => {
+        set((state) => ({
+          groups: state.groups.map((group) => (group.id === id ? { ...group, ...updates } : group)),
+        }))
+      },
+
+      deleteGroup: (id) => {
+        set((state) => ({
+          groups: state.groups.filter((group) => group.id !== id),
+        }))
+      },
+
+      assignStudentToGroup: (groupId: string, studentId: string) => {
+        set((state) => ({
+          groups: state.groups.map((group) =>
+            group.id === groupId && !group.students?.includes(studentId)
+              ? { ...group, students: [...(group.students || []), studentId] }
+              : group,
+          ),
+          students: state.students.map((student) => (student.id === studentId ? { ...student, groupId } : student)),
+        }))
+      },
+
+      removeStudentFromGroup: (groupId: string, studentId: string) => {
+        set((state) => ({
+          groups: state.groups.map((group) =>
+            group.id === groupId
+              ? { ...group, students: group.students?.filter((id: string) => id !== studentId) || [] }
+              : group,
+          ),
+          students: state.students.map((student) =>
+            student.id === studentId ? { ...student, groupId: undefined } : student,
+          ),
         }))
       },
 
@@ -184,6 +270,7 @@ export const useAdminStore = create<AdminState>()(
         }))
       },
 
+      // Activity
       addActivity: (activity) => {
         set((state) => ({
           activities: [{ ...activity, id: Date.now().toString() }, ...state.activities],

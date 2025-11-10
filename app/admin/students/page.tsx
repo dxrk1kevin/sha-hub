@@ -29,7 +29,6 @@ export default function StudentsPage() {
     name: "",
     email: "",
     phone: "",
-    course: "",
     teacher: "",
     fee: "",
     status: "active" as "active" | "inactive",
@@ -43,7 +42,6 @@ export default function StudentsPage() {
   const filteredStudents = students.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.course.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesGroup =
@@ -59,7 +57,6 @@ export default function StudentsPage() {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      course: formData.course,
       teacher: formData.teacher,
       fee: Number(formData.fee),
       status: formData.status,
@@ -84,7 +81,6 @@ export default function StudentsPage() {
       name: "",
       email: "",
       phone: "",
-      course: "",
       teacher: "",
       fee: "",
       status: "active",
@@ -103,7 +99,6 @@ export default function StudentsPage() {
       name: student.name,
       email: student.email,
       phone: student.phone,
-      course: student.course,
       teacher: student.teacher,
       fee: student.fee.toString(),
       status: student.status,
@@ -202,18 +197,6 @@ export default function StudentsPage() {
                       required
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="course">Course *</Label>
-                    <Input
-                      id="course"
-                      value={formData.course}
-                      onChange={(e) => setFormData({ ...formData, course: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="username">Username *</Label>
                     <Input
@@ -378,7 +361,7 @@ export default function StudentsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Search students by name, email, or course..."
+              placeholder="Search students by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -414,7 +397,6 @@ export default function StudentsPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Group</TableHead>
-                  <TableHead>Course</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Fee</TableHead>
@@ -430,7 +412,6 @@ export default function StudentsPage() {
                     <TableCell>
                       <Badge variant={student.groupId ? "default" : "secondary"}>{getGroupName(student.groupId)}</Badge>
                     </TableCell>
-                    <TableCell>{student.course}</TableCell>
                     <TableCell>{student.email}</TableCell>
                     <TableCell>{student.phone}</TableCell>
                     <TableCell>${student.fee}</TableCell>

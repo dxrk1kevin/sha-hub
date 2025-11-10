@@ -7,7 +7,6 @@ export interface Student {
   name: string
   email: string
   phone: string
-  course: string
   fee: number
   joinDate: string
   status: "active" | "inactive"
