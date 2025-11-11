@@ -27,7 +27,7 @@ function StatCards() {
     },
     {
       title: "Monthly Revenue",
-      value: `$${totalRevenue.toLocaleString()}`,
+      value: `${(totalRevenue / 1000).toFixed(1)} K UZS`,
       icon: DollarSign,
       description: "Total revenue collected",
       trend: "up" as const,

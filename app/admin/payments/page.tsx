@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Plus, Search, Edit, DollarSign, Calendar, User, Check } from "lucide-react"
+import { Plus, Search, Edit, DollarSign, Calendar, User, Check, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,11 +15,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAdminStore } from "@/stores/admin-store"
 import { AdminLayout } from "@/components/layouts/admin-layout"
 import type { Payment } from "@/types"
+import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
 
 const USD_TO_UZS = 12500 // Currency conversion rate
 
 export default function PaymentsPage() {
-  const { payments, students, addPayment, updatePayment, getStudentPendingPayment, completePayment } = useAdminStore()
+  const { payments, students, addPayment, updatePayment, deletePayment, getStudentPendingPayment, completePayment } =
+    useAdminStore()
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null)
@@ -34,6 +36,7 @@ export default function PaymentsPage() {
     month: new Date().toISOString().slice(0, 7), // Add month tracking
     paidAmount: "",
   })
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null)
 
   const filteredPayments = payments.filter((payment) =>
     payment.studentName.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -91,6 +94,7 @@ export default function PaymentsPage() {
   const handleEdit = (payment: Payment) => {
     setEditingPayment(payment)
     setFormData({
+      ...formData,
       studentId: payment.studentId,
       studentName: payment.studentName,
       amount: payment.amount.toString(),
@@ -125,6 +129,17 @@ export default function PaymentsPage() {
     }
   }
 
+  const handleDeletePayment = (paymentId: string) => {
+    setDeletingPaymentId(paymentId)
+  }
+
+  const confirmDelete = () => {
+    if (deletingPaymentId) {
+      deletePayment(deletingPaymentId)
+      setDeletingPaymentId(null)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -154,7 +169,6 @@ export default function PaymentsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* ... existing header code ... */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
@@ -188,7 +202,6 @@ export default function PaymentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                {/* ... existing amount input ... */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="amount">Amount</Label>
@@ -285,7 +298,6 @@ export default function PaymentsPage() {
           </Dialog>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -332,7 +344,6 @@ export default function PaymentsPage() {
           </Card>
         </div>
 
-        {/* ... existing search code ... */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
@@ -343,7 +354,6 @@ export default function PaymentsPage() {
           />
         </div>
 
-        {/* Payments Table */}
         <Card>
           <CardHeader>
             <CardTitle>Payment Records</CardTitle>
@@ -387,6 +397,14 @@ export default function PaymentsPage() {
                       <Button size="sm" variant="outline" onClick={() => handleEdit(payment)}>
                         <Edit className="w-4 h-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 bg-transparent"
+                        onClick={() => handleDeletePayment(payment.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -401,6 +419,14 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
+
+      <PasswordConfirmDialog
+        open={deletingPaymentId !== null}
+        onOpenChange={(open) => !open && setDeletingPaymentId(null)}
+        onConfirm={confirmDelete}
+        title="Delete Payment"
+        description="Are you sure you want to delete this payment? This action cannot be undone."
+      />
     </AdminLayout>
   )
 }

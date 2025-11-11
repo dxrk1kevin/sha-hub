@@ -9,6 +9,7 @@ import { useAdminStore } from "@/stores/admin-store"
 import { AdminLayout } from "@/components/layouts/admin-layout"
 import type { Teacher } from "@/types/teacher-types"
 import { TeacherFormDialog, TeachersTable } from "./fragments"
+import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
 
 type TeacherFormValues = {
   name: string
@@ -27,6 +28,7 @@ export default function TeachersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null)
+  const [deletingTeacherId, setDeletingTeacherId] = useState<string | null>(null)
 
   const filteredTeachers = teachers.filter(
     (teacher) =>
@@ -50,15 +52,12 @@ export default function TeachersPage() {
       }
 
       if (teacherToEdit) {
-        // Update existing teacher
         updateTeacher(teacherToEdit.id, teacherData)
       } else {
-        // Add new teacher - omit the id as store generates it
         const { joinDate, ...dataForAdd } = teacherData
         addTeacher(dataForAdd as any)
       }
 
-      // Close dialog and reset state on successful submit
       setIsDialogOpen(false)
       setEditingTeacher(null)
     } catch (error) {
@@ -72,8 +71,13 @@ export default function TeachersPage() {
   }
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this teacher?")) {
-      deleteTeacher(id)
+    setDeletingTeacherId(id)
+  }
+
+  const confirmDelete = () => {
+    if (deletingTeacherId) {
+      deleteTeacher(deletingTeacherId)
+      setDeletingTeacherId(null)
     }
   }
 
@@ -129,6 +133,14 @@ export default function TeachersPage() {
           onSubmit={handleFormSubmit}
           editingTeacher={editingTeacher}
           setEditingTeacher={setEditingTeacher}
+        />
+
+        <PasswordConfirmDialog
+          open={deletingTeacherId !== null}
+          onOpenChange={(open) => !open && setDeletingTeacherId(null)}
+          onConfirm={confirmDelete}
+          title="Delete Teacher"
+          description="Are you sure you want to delete this teacher? This action cannot be undone and will remove all associated data."
         />
       </div>
     </AdminLayout>

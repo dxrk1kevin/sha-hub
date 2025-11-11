@@ -24,6 +24,8 @@ function getStatusColor(status: Teacher["status"]) {
 }
 
 export function TeachersTable({ teachers, onEdit, onDelete }: TeachersTableProps) {
+  const USD_TO_UZS = 12500
+
   return (
     <Table>
       <TableHeader>
@@ -32,7 +34,7 @@ export function TeachersTable({ teachers, onEdit, onDelete }: TeachersTableProps
           <TableHead>Subject</TableHead>
           <TableHead>Email</TableHead>
           <TableHead>Phone</TableHead>
-          <TableHead>Salary</TableHead>
+          <TableHead>Salary (UZS)</TableHead>
           <TableHead>Students</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Join Date</TableHead>
@@ -46,7 +48,7 @@ export function TeachersTable({ teachers, onEdit, onDelete }: TeachersTableProps
             <TableCell>{teacher.subject}</TableCell>
             <TableCell>{teacher.email}</TableCell>
             <TableCell>{teacher.phone}</TableCell>
-            <TableCell>${teacher.salary}</TableCell>
+            <TableCell>{((teacher.salary * USD_TO_UZS) / 1000).toFixed(1)} K</TableCell>
             <TableCell>{teacher.studentCount}</TableCell>
             <TableCell>
               <Badge className={getStatusColor(teacher.status)}>{teacher.status}</Badge>

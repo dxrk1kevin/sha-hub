@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Plus, Users, BookOpen, Clock, Award, Edit, Trash2, UserPlus, UserMinus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +17,8 @@ import { useAdminStore } from "@/stores/admin-store"
 import { AdminLayout } from "@/components/layouts/admin-layout"
 import type { Group, LessonDay } from "@/types/teacher-types"
 import { Checkbox } from "@/components/ui/checkbox"
+import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
+import { toast } from "sonner"
 
 export default function AdminGroupsPage() {
   const { groups, addGroup, updateGroup, deleteGroup, assignStudentsToGroup } = useTeacherStore()
@@ -26,6 +27,7 @@ export default function AdminGroupsPage() {
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   const [isManageStudentsOpen, setIsManageStudentsOpen] = useState(false)
   const [selectedGroupForStudents, setSelectedGroupForStudents] = useState<string | null>(null)
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -57,8 +59,10 @@ export default function AdminGroupsPage() {
 
     if (editingGroup) {
       updateGroup(editingGroup.id, groupData)
+      toast.success(`Group "${formData.name}" updated successfully`)
     } else {
       addGroup(groupData)
+      toast.success(`Group "${formData.name}" created successfully`)
     }
 
     resetForm()
@@ -91,8 +95,15 @@ export default function AdminGroupsPage() {
   }
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this group?")) {
-      deleteGroup(id)
+    setDeletingGroupId(id)
+  }
+
+  const confirmDelete = () => {
+    if (deletingGroupId) {
+      const group = groups.find((g) => g.id === deletingGroupId)
+      deleteGroup(deletingGroupId)
+      toast.success(`Group "${group?.name}" deleted successfully`)
+      setDeletingGroupId(null)
     }
   }
 
@@ -122,9 +133,13 @@ export default function AdminGroupsPage() {
         selectedGroupForStudents,
         group.studentIds.filter((id) => id !== studentId),
       )
+      const student = students.find((s) => s.id === studentId)
+      toast.success(`${student?.name} removed from group`)
     } else {
       // Add student to group
       assignStudentsToGroup(selectedGroupForStudents, [...group.studentIds, studentId])
+      const student = students.find((s) => s.id === studentId)
+      toast.success(`${student?.name} added to group`)
     }
   }
 
@@ -413,6 +428,15 @@ export default function AdminGroupsPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Password Confirmation Dialog */}
+        <PasswordConfirmDialog
+          open={deletingGroupId !== null}
+          onOpenChange={(open) => !open && setDeletingGroupId(null)}
+          onConfirm={confirmDelete}
+          title="Delete Group"
+          description="Are you sure you want to delete this group? All students will be unassigned and group data will be lost."
+        />
 
         {groups.length === 0 && (
           <Card>

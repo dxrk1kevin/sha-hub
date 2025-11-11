@@ -1,40 +1,21 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import {
-  Plus,
-  Users,
-  BookOpen,
-  Calendar,
-  Clock,
-  Edit,
-  Trash2,
-  UserPlus,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useTeacherStore } from "@/stores/teacher-store";
-import { useAdminStore } from "@/stores/admin-store";
-import { TeacherLayout } from "@/components/layouts/teacher-layout";
+import type React from "react"
+
+import { useState } from "react"
+import { Plus, Users, BookOpen, Calendar, Clock, Edit, Trash2, UserPlus, UserMinus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useTeacherStore } from "@/stores/teacher-store"
+import { useAdminStore } from "@/stores/admin-store"
+import { useAuthStore } from "@/stores/auth-store"
+import { TeacherLayout } from "@/components/layouts/teacher-layout"
 import {
   MultiSelector,
   MultiSelectorContent,
@@ -42,65 +23,62 @@ import {
   MultiSelectorItem,
   MultiSelectorList,
   MultiSelectorTrigger,
-} from "@/components/ui/multi-select";
-import { Group, LessonDay } from "@/types/teacher-types";
+} from "@/components/ui/multi-select"
+import { toast } from "sonner"
+import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
+import type { Group, LessonDay } from "@/types/teacher-types"
 
 export default function TeacherGroupsPage() {
-  const { groups, addGroup, updateGroup, deleteGroup, assignStudentsToGroup } =
-    useTeacherStore();
-  const { students } = useAdminStore();
+  const { user } = useAuthStore()
+  const { groups, addGroup, updateGroup, deleteGroup, assignStudentsToGroup } = useTeacherStore()
+  const { students } = useAdminStore()
 
-  const [isAddGroupDialogOpen, setIsAddGroupDialogOpen] = useState(false);
-  const [isAssignStudentsDialogOpen, setIsAssignStudentsDialogOpen] =
-    useState(false);
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-  const [assigningGroup, setAssigningGroup] = useState<Group | null>(null);
+  const myGroups = groups.filter((g) => g.teacherId === user?.id)
+
+  const [isAddGroupDialogOpen, setIsAddGroupDialogOpen] = useState(false)
+  const [isAssignStudentsDialogOpen, setIsAssignStudentsDialogOpen] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null)
+  const [assigningGroup, setAssigningGroup] = useState<Group | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     subject: "",
     lessonTime: "",
     lessonDays: [] as LessonDay[],
     studentCount: 0,
-  });
-  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  })
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([])
+  const [selectedGroupForStudents, setSelectedGroupForStudents] = useState<string | null>(null)
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null)
 
-  const totalGroups = groups.length;
-  const totalStudentsInGroups = groups.reduce(
-    (sum, group) => sum + group.studentIds.length,
-    0
-  );
-  const uniqueSubjects = new Set(groups.map((g) => g.subject)).size;
+  const totalGroups = myGroups.length
+  const totalStudentsInGroups = myGroups.reduce((sum, group) => sum + group.studentIds.length, 0)
+  const uniqueSubjects = new Set(myGroups.map((g) => g.subject)).size
 
-  const lessonDaysOptions: LessonDay[] = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
+  const lessonDaysOptions: LessonDay[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
   const handleAddGroupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
     const groupData = {
       name: formData.name,
       subject: formData.subject,
       lessonTime: formData.lessonTime,
       lessonDays: formData.lessonDays,
-      studentIds: editingGroup ? editingGroup.studentIds : [], // Keep existing students if editing
+      studentIds: editingGroup ? editingGroup.studentIds : [],
       active: true,
-    };
-
-    if (editingGroup) {
-      updateGroup(editingGroup.id, groupData);
-    } else {
-      addGroup(groupData);
+      teacherId: user?.id,
     }
 
-    resetAddGroupForm();
-  };
+    if (editingGroup) {
+      updateGroup(editingGroup.id, groupData)
+      toast.success(`Group "${formData.name}" updated successfully`)
+    } else {
+      addGroup(groupData)
+      toast.success(`Group "${formData.name}" created successfully`)
+    }
+
+    resetAddGroupForm()
+  }
 
   const resetAddGroupForm = () => {
     setFormData({
@@ -109,52 +87,76 @@ export default function TeacherGroupsPage() {
       lessonTime: "",
       lessonDays: [],
       studentCount: 0,
-    });
-    setEditingGroup(null);
-    setIsAddGroupDialogOpen(false);
-  };
+    })
+    setEditingGroup(null)
+    setIsAddGroupDialogOpen(false)
+  }
 
   const handleEditGroup = (group: Group) => {
-    setEditingGroup(group);
+    setEditingGroup(group)
     setFormData({
       name: group.name,
       subject: group.subject,
       lessonTime: group.lessonTime,
       lessonDays: group.lessonDays,
       studentCount: group.studentIds.length,
-    });
-    setIsAddGroupDialogOpen(true);
-  };
+    })
+    setIsAddGroupDialogOpen(true)
+  }
 
   const handleDeleteGroup = (id: string) => {
-    if (
-      confirm(
-        "Are you sure you want to delete this group and all its associated lessons?"
-      )
-    ) {
-      deleteGroup(id);
-    }
-  };
+    setDeletingGroupId(id)
+  }
 
-  const handleAssignStudents = (group: Group) => {
-    setAssigningGroup(group);
-    setSelectedStudentIds(group.studentIds);
-    setIsAssignStudentsDialogOpen(true);
-  };
-
-  const handleAssignStudentsSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (assigningGroup) {
-      assignStudentsToGroup(assigningGroup.id, selectedStudentIds);
+  const confirmDelete = () => {
+    if (deletingGroupId) {
+      const group = myGroups.find((g) => g.id === deletingGroupId)
+      deleteGroup(deletingGroupId)
+      toast.success(`Group "${group?.name}" deleted successfully`)
+      setDeletingGroupId(null)
     }
-    resetAssignStudentsForm();
-  };
+  }
+
+  const openManageStudents = (group: Group) => {
+    setAssigningGroup(group)
+    setSelectedGroupForStudents(group.id)
+    setIsAssignStudentsDialogOpen(true)
+  }
+
+  const handleStudentToggle = (studentId: string) => {
+    if (!assigningGroup) return
+
+    const isCurrentlyInGroup = assigningGroup.studentIds.includes(studentId)
+
+    if (isCurrentlyInGroup) {
+      const updatedStudentIds = assigningGroup.studentIds.filter((id) => id !== studentId)
+      assignStudentsToGroup(assigningGroup.id, updatedStudentIds)
+      const student = students.find((s) => s.id === studentId)
+      toast.success(`${student?.name} removed from group`)
+      setAssigningGroup({ ...assigningGroup, studentIds: updatedStudentIds })
+    } else {
+      const updatedStudentIds = [...assigningGroup.studentIds, studentId]
+      assignStudentsToGroup(assigningGroup.id, updatedStudentIds)
+      const student = students.find((s) => s.id === studentId)
+      toast.success(`${student?.name} added to group`)
+      setAssigningGroup({ ...assigningGroup, studentIds: updatedStudentIds })
+    }
+  }
 
   const resetAssignStudentsForm = () => {
-    setAssigningGroup(null);
-    setSelectedStudentIds([]);
-    setIsAssignStudentsDialogOpen(false);
-  };
+    setAssigningGroup(null)
+    setSelectedStudentIds([])
+    setIsAssignStudentsDialogOpen(false)
+  }
+
+  const handleAssignStudentsSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (assigningGroup) {
+      assignStudentsToGroup(assigningGroup.id, selectedStudentIds)
+      toast.success(`Students assigned to group "${assigningGroup.name}"`)
+      resetAssignStudentsForm()
+    }
+  }
 
   return (
     <TeacherLayout>
@@ -163,15 +165,10 @@ export default function TeacherGroupsPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">My Groups</h1>
-            <p className="text-gray-600">
-              Manage your assigned groups and students
-            </p>
+            <p className="text-gray-600">Manage your assigned groups and students</p>
           </div>
 
-          <Dialog
-            open={isAddGroupDialogOpen}
-            onOpenChange={setIsAddGroupDialogOpen}
-          >
+          <Dialog open={isAddGroupDialogOpen} onOpenChange={setIsAddGroupDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditingGroup(null)}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -180,9 +177,7 @@ export default function TeacherGroupsPage() {
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>
-                  {editingGroup ? "Edit Group" : "Add New Group"}
-                </DialogTitle>
+                <DialogTitle>{editingGroup ? "Edit Group" : "Add New Group"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleAddGroupSubmit} className="space-y-4">
                 <div className="flex items-center gap-2 text-gray-600">
@@ -196,9 +191,7 @@ export default function TeacherGroupsPage() {
                       id="groupName"
                       placeholder="Enter group name"
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
                     />
                   </div>
@@ -208,9 +201,7 @@ export default function TeacherGroupsPage() {
                       id="subject"
                       placeholder="Enter subject"
                       value={formData.subject}
-                      onChange={(e) =>
-                        setFormData({ ...formData, subject: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                       required
                     />
                   </div>
@@ -228,9 +219,7 @@ export default function TeacherGroupsPage() {
                       type="text"
                       placeholder="HH:MM - HH:MM"
                       value={formData.lessonTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lessonTime: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, lessonTime: e.target.value })}
                       required
                     />
                   </div>
@@ -265,7 +254,7 @@ export default function TeacherGroupsPage() {
                               lessonDays: checked
                                 ? [...prev.lessonDays, day]
                                 : prev.lessonDays.filter((d) => d !== day),
-                            }));
+                            }))
                           }}
                         />
                         <label
@@ -280,17 +269,10 @@ export default function TeacherGroupsPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 text-white"
-                  >
+                  <Button type="submit" className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 text-white">
                     {editingGroup ? "Update Group" : "Add Group"}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetAddGroupForm}
-                  >
+                  <Button type="button" variant="outline" onClick={resetAddGroupForm}>
                     Cancel
                   </Button>
                 </div>
@@ -303,9 +285,7 @@ export default function TeacherGroupsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Groups
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Total Groups</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -316,9 +296,7 @@ export default function TeacherGroupsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Students
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -334,9 +312,7 @@ export default function TeacherGroupsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{uniqueSubjects}</div>
-              <p className="text-xs text-muted-foreground">
-                Different subjects
-              </p>
+              <p className="text-xs text-muted-foreground">Different subjects</p>
             </CardContent>
           </Card>
         </div>
@@ -345,9 +321,7 @@ export default function TeacherGroupsPage() {
         <Card>
           <CardHeader>
             <CardTitle>My Groups</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Overview of all groups assigned to you
-            </p>
+            <p className="text-sm text-muted-foreground">Overview of all groups assigned to you</p>
           </CardHeader>
           <CardContent>
             <Table>
@@ -362,7 +336,7 @@ export default function TeacherGroupsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {groups.map((group) => (
+                {myGroups.map((group) => (
                   <TableRow key={group.id}>
                     <TableCell className="font-medium">{group.name}</TableCell>
                     <TableCell>{group.subject}</TableCell>
@@ -386,35 +360,21 @@ export default function TeacherGroupsPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Dialog
-                          open={
-                            isAssignStudentsDialogOpen &&
-                            assigningGroup?.id === group.id
-                          }
+                          open={isAssignStudentsDialogOpen && assigningGroup?.id === group.id}
                           onOpenChange={setIsAssignStudentsDialogOpen}
                         >
                           <DialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAssignStudents(group)}
-                            >
+                            <Button size="sm" variant="outline" onClick={() => openManageStudents(group)}>
                               <UserPlus className="w-4 h-4" />
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="max-w-md">
                             <DialogHeader>
-                              <DialogTitle>
-                                Assign Students to {assigningGroup?.name}
-                              </DialogTitle>
+                              <DialogTitle>Assign Students to {assigningGroup?.name}</DialogTitle>
                             </DialogHeader>
-                            <form
-                              onSubmit={handleAssignStudentsSubmit}
-                              className="space-y-4"
-                            >
+                            <form onSubmit={handleAssignStudentsSubmit} className="space-y-4">
                               <div>
-                                <Label htmlFor="students">
-                                  Select Students
-                                </Label>
+                                <Label htmlFor="students">Select Students</Label>
                                 <MultiSelector
                                   values={selectedStudentIds}
                                   onValuesChange={setSelectedStudentIds}
@@ -427,10 +387,7 @@ export default function TeacherGroupsPage() {
                                   <MultiSelectorContent>
                                     <MultiSelectorList>
                                       {students.map((student) => (
-                                        <MultiSelectorItem
-                                          key={student.id}
-                                          value={student.id}
-                                        >
+                                        <MultiSelectorItem key={student.id} value={student.id}>
                                           {student.name}
                                         </MultiSelectorItem>
                                       ))}
@@ -442,29 +399,17 @@ export default function TeacherGroupsPage() {
                                 <Button type="submit" className="flex-1">
                                   Assign Students
                                 </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={resetAssignStudentsForm}
-                                >
+                                <Button type="button" variant="outline" onClick={resetAssignStudentsForm}>
                                   Cancel
                                 </Button>
                               </div>
                             </form>
                           </DialogContent>
                         </Dialog>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditGroup(group)}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => handleEditGroup(group)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDeleteGroup(group.id)}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => handleDeleteGroup(group.id)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -476,14 +421,66 @@ export default function TeacherGroupsPage() {
           </CardContent>
         </Card>
 
-        {groups.length === 0 && (
+        {myGroups.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500">
-              No groups found. Add a new group to get started!
-            </p>
+            <p className="text-gray-500">No groups assigned to you yet. Contact admin to get assigned to groups.</p>
           </div>
         )}
+
+        {/* Manage Students Dialog */}
+        <Dialog open={isAssignStudentsDialogOpen} onOpenChange={setIsAssignStudentsDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Manage Students - {assigningGroup?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">Select students to add or remove from this group</div>
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {students.map((student) => {
+                  const isInGroup = assigningGroup?.studentIds.includes(student.id)
+                  return (
+                    <div
+                      key={student.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                    >
+                      <div>
+                        <div className="font-medium">{student.name}</div>
+                        <div className="text-sm text-muted-foreground">{student.email}</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={isInGroup ? "destructive" : "default"}
+                        onClick={() => handleStudentToggle(student.id)}
+                      >
+                        {isInGroup ? (
+                          <>
+                            <UserMinus className="w-4 h-4 mr-1" />
+                            Remove
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4 mr-1" />
+                            Add
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Confirmation Dialog for deletions */}
+        <PasswordConfirmDialog
+          open={deletingGroupId !== null}
+          onOpenChange={(open) => !open && setDeletingGroupId(null)}
+          onConfirm={confirmDelete}
+          title="Delete Group"
+          description="Are you sure you want to delete this group? All students will be unassigned and group data will be lost."
+        />
       </div>
     </TeacherLayout>
-  );
+  )
 }

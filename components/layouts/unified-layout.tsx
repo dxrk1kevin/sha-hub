@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { LogOut, User, type LucideIcon } from "lucide-react"
@@ -24,6 +24,7 @@ export function UnifiedLayout({ children, navigation, onInit }: UnifiedLayoutPro
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuthStore()
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
 
   useEffect(() => {
     if (onInit) {
@@ -35,6 +36,8 @@ export function UnifiedLayout({ children, navigation, onInit }: UnifiedLayoutPro
     logout()
     router.push("/")
   }
+
+  const profileLink = user?.role === "admin" ? "/admin/profile" : "/teacher/profile"
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -63,9 +66,12 @@ export function UnifiedLayout({ children, navigation, onInit }: UnifiedLayoutPro
           })}
         </nav>
 
-        {/* User Profile */}
+        {/* User Profile - Clickable */}
         <div className="absolute bottom-0 left-0 right-0 w-64 p-4 border-t">
-          <div className="flex items-center gap-3 mb-3">
+          <div
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className="flex items-center gap-3 mb-3 cursor-pointer p-2 rounded hover:bg-gray-100"
+          >
             <div className="size-8 bg-blue-100 rounded-full flex items-center justify-center">
               <User className="size-4 text-blue-600" />
             </div>
@@ -74,6 +80,18 @@ export function UnifiedLayout({ children, navigation, onInit }: UnifiedLayoutPro
               <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
             </div>
           </div>
+
+          {showProfileMenu && (
+            <div className="mb-3 space-y-1">
+              <Link href={profileLink}>
+                <Button variant="ghost" size="sm" className="w-full justify-start text-sm">
+                  <User className="size-4 mr-2" />
+                  My Profile
+                </Button>
+              </Link>
+            </div>
+          )}
+
           <Button onClick={handleLogout} variant="outline" size="sm" className="w-full justify-start bg-transparent">
             <LogOut className="size-4 mr-2" />
             Logout

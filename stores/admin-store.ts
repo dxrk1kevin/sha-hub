@@ -26,6 +26,7 @@ interface AdminState {
   // Payment CRUD with enhanced logic
   addPayment: (payment: Omit<Payment, "id">) => void
   updatePayment: (id: string, payment: Partial<Payment>) => void
+  deletePayment: (id: string) => void // Added deletePayment method
   getStudentPendingPayment: (studentId: string) => Payment | undefined
   getStudentCompletedPayments: (studentId: string) => Payment[]
   completePayment: (paymentId: string, paidAmount: number) => void
@@ -121,7 +122,14 @@ export const useAdminStore = create<AdminState>()(
       deleteStudent: (id) => {
         const student = get().students.find((s) => s.id === id)
         set((state) => ({
+          // Remove student from students array
           students: state.students.filter((student) => student.id !== id),
+          // Remove student from their group if they were assigned
+          groups: state.groups.map((group) =>
+            group.students?.includes(id)
+              ? { ...group, students: group.students.filter((studentId: string) => studentId !== id) }
+              : group,
+          ),
           activities: [
             {
               id: Date.now().toString(),
@@ -154,6 +162,22 @@ export const useAdminStore = create<AdminState>()(
       updatePayment: (id, updates) => {
         set((state) => ({
           payments: state.payments.map((payment) => (payment.id === id ? { ...payment, ...updates } : payment)),
+        }))
+      },
+
+      deletePayment: (id) => {
+        const payment = get().payments.find((p) => p.id === id)
+        set((state) => ({
+          payments: state.payments.filter((payment) => payment.id !== id),
+          activities: [
+            {
+              id: Date.now().toString(),
+              type: "payment",
+              message: `Payment for ${payment?.studentName} deleted`,
+              timestamp: "Just now",
+            },
+            ...state.activities,
+          ],
         }))
       },
 
@@ -202,8 +226,15 @@ export const useAdminStore = create<AdminState>()(
       },
 
       deleteGroup: (id) => {
+        const group = get().groups.find((g) => g.id === id)
+        const studentIdsInGroup = group?.students || []
+
         set((state) => ({
           groups: state.groups.filter((group) => group.id !== id),
+          // Set groupId to undefined for all students who were in this group
+          students: state.students.map((student) =>
+            studentIdsInGroup.includes(student.id) ? { ...student, groupId: undefined } : student,
+          ),
         }))
       },
 

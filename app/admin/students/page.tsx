@@ -16,6 +16,7 @@ import { useTeacherStore } from "@/stores/teacher-store"
 import { AdminLayout } from "@/components/layouts/admin-layout"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { Student } from "@/types/student-types"
+import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
 
 export default function StudentsPage() {
   const { students, teachers, addStudent, updateStudent, deleteStudent } = useAdminStore()
@@ -25,6 +26,7 @@ export default function StudentsPage() {
   const [filterGroup, setFilterGroup] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
+  const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -111,8 +113,13 @@ export default function StudentsPage() {
   }
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this student?")) {
-      deleteStudent(id)
+    setDeletingStudentId(id)
+  }
+
+  const confirmDelete = () => {
+    if (deletingStudentId) {
+      deleteStudent(deletingStudentId)
+      setDeletingStudentId(null)
     }
   }
 
@@ -139,6 +146,8 @@ export default function StudentsPage() {
   const totalStudents = students.length
   const assignedStudents = students.filter((s) => s.groupId).length
   const unassignedStudents = totalStudents - assignedStudents
+
+  const USD_TO_UZS = 12500
 
   return (
     <AdminLayout>
@@ -262,7 +271,7 @@ export default function StudentsPage() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="fee">Monthly Fee ($) *</Label>
+                    <Label htmlFor="fee">Monthly Fee (UZS) *</Label>
                     <Input
                       id="fee"
                       type="number"
@@ -399,7 +408,7 @@ export default function StudentsPage() {
                   <TableHead>Group</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
-                  <TableHead>Fee</TableHead>
+                  <TableHead>Fee (UZS)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -414,7 +423,7 @@ export default function StudentsPage() {
                     </TableCell>
                     <TableCell>{student.email}</TableCell>
                     <TableCell>{student.phone}</TableCell>
-                    <TableCell>${student.fee}</TableCell>
+                    <TableCell>{((student.fee * USD_TO_UZS) / 1000).toFixed(1)} K</TableCell>
                     <TableCell>
                       <Badge variant={student.status === "active" ? "default" : "secondary"}>{student.status}</Badge>
                     </TableCell>
@@ -443,6 +452,14 @@ export default function StudentsPage() {
             <p className="text-gray-500">No students found</p>
           </div>
         )}
+
+        <PasswordConfirmDialog
+          open={deletingStudentId !== null}
+          onOpenChange={(open) => !open && setDeletingStudentId(null)}
+          onConfirm={confirmDelete}
+          title="Delete Student"
+          description="Are you sure you want to delete this student? This will remove all their data including payment history and group assignments."
+        />
       </div>
     </AdminLayout>
   )
