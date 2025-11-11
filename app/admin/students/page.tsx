@@ -17,6 +17,7 @@ import { AdminLayout } from "@/components/layouts/admin-layout"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { Student } from "@/types/student-types"
 import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
+import { toast } from "sonner"
 
 export default function StudentsPage() {
   const { students, teachers, addStudent, updateStudent, deleteStudent } = useAdminStore()
@@ -71,8 +72,10 @@ export default function StudentsPage() {
 
     if (editingStudent) {
       updateStudent(editingStudent.id, studentData)
+      toast.success(`Student ${studentData.name} updated successfully`)
     } else {
       addStudent(studentData)
+      toast.success(`Student ${studentData.name} added successfully`)
     }
 
     resetForm()
@@ -118,7 +121,11 @@ export default function StudentsPage() {
 
   const confirmDelete = () => {
     if (deletingStudentId) {
+      const student = students.find((s) => s.id === deletingStudentId)
       deleteStudent(deletingStudentId)
+      if (student) {
+        toast.success(`Student ${student.name} deleted successfully`)
+      }
       setDeletingStudentId(null)
     }
   }

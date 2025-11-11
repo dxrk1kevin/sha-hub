@@ -2,7 +2,19 @@
 
 import type React from "react"
 import { useState } from "react"
-import { Plus, Users, BookOpen, Clock, Award, Edit, Trash2, UserPlus, UserMinus } from "lucide-react"
+import {
+  Plus,
+  Users,
+  BookOpen,
+  Clock,
+  Award,
+  Edit,
+  Trash2,
+  UserPlus,
+  UserMinus,
+  ClipboardList,
+  Eye,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -19,21 +31,27 @@ import type { Group, LessonDay } from "@/types/teacher-types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
 import { toast } from "sonner"
+import { AttendanceTableDialog } from "@/components/attendance-table-dialog"
 
 export default function AdminGroupsPage() {
-  const { groups, addGroup, updateGroup, deleteGroup, assignStudentsToGroup } = useTeacherStore()
+  const { groups, addGroup, updateGroup, deleteGroup, assignStudentsToGroup, saveAttendanceForDate } = useTeacherStore()
   const { students, teachers } = useAdminStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
   const [isManageStudentsOpen, setIsManageStudentsOpen] = useState(false)
   const [selectedGroupForStudents, setSelectedGroupForStudents] = useState<string | null>(null)
   const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null)
-
+  const [isAttendanceDialogOpen, setIsAttendanceDialogOpen] = useState(false)
+  const [selectedGroupForAttendance, setSelectedGroupForAttendance] = useState<string | null>(null)
+  const [isViewAttendanceOpen, setIsViewAttendanceOpen] = useState(false)
+  const [selectedGroupForView, setSelectedGroupForView] = useState<Group | null>(null)
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0])
+  const [currentAttendance, setCurrentAttendance] = useState<Record<string, "present" | "absent" | "late">>({})
   const [formData, setFormData] = useState({
     name: "",
     subject: "",
     lessonTime: "",
-    lessonDays: [] as LessonDay[],
+    lessonDays: [],
     teacherId: "",
     description: "",
   })
@@ -143,7 +161,39 @@ export default function AdminGroupsPage() {
     }
   }
 
+  const openAttendanceDialog = (groupId: string) => {
+    setSelectedGroupForAttendance(groupId)
+    setIsAttendanceDialogOpen(true)
+    // Initialize attendance for all students in group
+    const group = groups.find((g) => g.id === groupId)
+    if (group) {
+      const initialAttendance: Record<string, "present" | "absent" | "late"> = {}
+      group.studentIds.forEach((studentId) => {
+        initialAttendance[studentId] = "absent"
+      })
+      setCurrentAttendance(initialAttendance)
+    }
+  }
+
+  const handleAttendanceChange = (studentId: string, status: "present" | "absent" | "late") => {
+    setCurrentAttendance((prev) => ({ ...prev, [studentId]: status }))
+  }
+
+  const handleSaveAttendance = () => {
+    if (!selectedGroupForAttendance) return
+    saveAttendanceForDate(selectedGroupForAttendance, attendanceDate, currentAttendance)
+    toast.success(`Attendance saved for ${attendanceDate}`)
+    setIsAttendanceDialogOpen(false)
+  }
+
+  const openViewAttendance = (group: Group) => {
+    setSelectedGroupForView(group)
+    setIsViewAttendanceOpen(true)
+  }
+
   const selectedGroup = groups.find((g) => g.id === selectedGroupForStudents)
+  const attendanceGroup = groups.find((g) => g.id === selectedGroupForAttendance)
+  const attendanceStudents = students.filter((s) => attendanceGroup?.studentIds.includes(s.id))
 
   return (
     <AdminLayout>
@@ -151,59 +201,73 @@ export default function AdminGroupsPage() {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Groups Management</h1>
-            <p className="text-gray-600">Create and manage student groups</p>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Groups Management
+            </h1>
+            <p className="text-gray-600 mt-1">Create and manage student groups with attendance tracking</p>
           </div>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setEditingGroup(null)}>
+              <Button
+                onClick={() => setEditingGroup(null)}
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-lg"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Group
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>{editingGroup ? "Edit Group" : "Create New Group"}</DialogTitle>
+                <DialogTitle className="text-xl">{editingGroup ? "Edit Group" : "Create New Group"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Group Name</Label>
+                    <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
+                      Group Name
+                    </Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g., Math A1"
+                      className="border-2 border-gray-200 hover:border-indigo-300 transition-colors"
                       required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="subject">Subject</Label>
+                    <Label htmlFor="subject" className="text-sm font-semibold text-gray-700">
+                      Subject
+                    </Label>
                     <Input
                       id="subject"
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                       placeholder="e.g., Mathematics"
+                      className="border-2 border-gray-200 hover:border-indigo-300 transition-colors"
                       required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="lessonTime">Lesson Time</Label>
+                  <Label htmlFor="lessonTime" className="text-sm font-semibold text-gray-700">
+                    Lesson Time
+                  </Label>
                   <Input
                     id="lessonTime"
                     value={formData.lessonTime}
                     onChange={(e) => setFormData({ ...formData, lessonTime: e.target.value })}
                     placeholder="e.g., 09:00 - 10:30"
+                    className="border-2 border-gray-200 hover:border-indigo-300 transition-colors"
                     required
                   />
                 </div>
 
                 <div>
-                  <Label>Lesson Days</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <Label className="text-sm font-semibold text-gray-700">Lesson Days</Label>
+                  <div className="flex flex-wrap gap-3 mt-2">
                     {weekDays.map((day) => (
                       <div key={day} className="flex items-center space-x-2">
                         <Checkbox
@@ -223,12 +287,14 @@ export default function AdminGroupsPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="teacherId">Assign Teacher (Optional)</Label>
+                  <Label htmlFor="teacherId" className="text-sm font-semibold text-gray-700">
+                    Assign Teacher (Optional)
+                  </Label>
                   <Select
                     value={formData.teacherId}
                     onValueChange={(value) => setFormData({ ...formData, teacherId: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-2 border-gray-200 hover:border-indigo-300 transition-colors">
                       <SelectValue placeholder="Select a teacher" />
                     </SelectTrigger>
                     <SelectContent>
@@ -243,21 +309,27 @@ export default function AdminGroupsPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
+                    Description
+                  </Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Brief description of the group"
+                    className="border-2 border-gray-200 hover:border-indigo-300 transition-colors"
                     rows={3}
                   />
                 </div>
 
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                  >
                     {editingGroup ? "Update" : "Create"} Group
                   </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
+                  <Button type="button" variant="outline" onClick={resetForm} className="border-2 bg-transparent">
                     Cancel
                   </Button>
                 </div>
@@ -268,66 +340,66 @@ export default function AdminGroupsPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-blue-50 to-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Groups</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-gray-700">Total Groups</CardTitle>
+              <BookOpen className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalGroups}</div>
-              <p className="text-xs text-muted-foreground">{activeGroups} active</p>
+              <div className="text-3xl font-bold text-blue-600">{totalGroups}</div>
+              <p className="text-xs text-muted-foreground mt-1">{activeGroups} active</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-purple-50 to-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-gray-700">Total Students</CardTitle>
+              <Users className="h-5 w-5 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalStudentsInGroups}</div>
-              <p className="text-xs text-muted-foreground">Across all groups</p>
+              <div className="text-3xl font-bold text-purple-600">{totalStudentsInGroups}</div>
+              <p className="text-xs text-muted-foreground mt-1">Across all groups</p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow bg-gradient-to-br from-green-50 to-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Group Size</CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-gray-700">Avg Group Size</CardTitle>
+              <Award className="h-5 w-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-green-600">
                 {totalGroups > 0 ? Math.round(totalStudentsInGroups / totalGroups) : 0}
               </div>
-              <p className="text-xs text-muted-foreground">Students per group</p>
+              <p className="text-xs text-muted-foreground mt-1">Students per group</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Groups Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Groups</CardTitle>
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b">
+            <CardTitle className="text-xl">All Groups</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Group Name</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Teacher</TableHead>
-                  <TableHead>Students</TableHead>
-                  <TableHead>Schedule</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                <TableRow className="bg-gray-50 border-b">
+                  <TableHead className="font-semibold text-gray-700">Group Name</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Subject</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Teacher</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Students</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Schedule</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Time</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Status</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {groups.map((group) => {
                   const teacher = teachers.find((t) => t.id === group.teacherId)
                   return (
-                    <TableRow key={group.id}>
+                    <TableRow key={group.id} className="hover:bg-gray-50 transition-colors">
                       <TableCell className="font-medium">{group.name}</TableCell>
                       <TableCell>{group.subject}</TableCell>
                       <TableCell>
@@ -359,19 +431,58 @@ export default function AdminGroupsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={group.active ? "default" : "secondary"}>
+                        <Badge
+                          variant={group.active ? "default" : "secondary"}
+                          className={group.active ? "bg-green-600" : ""}
+                        >
                           {group.active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openManageStudents(group.id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openViewAttendance(group)}
+                            className="border-2 hover:border-cyan-600 hover:bg-cyan-50"
+                            title="View Attendance History"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openAttendanceDialog(group.id)}
+                            className="border-2 hover:border-blue-600 hover:bg-blue-50"
+                            title="Mark Attendance"
+                          >
+                            <ClipboardList className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openManageStudents(group.id)}
+                            className="border-2 hover:border-purple-600 hover:bg-purple-50"
+                            title="Manage Students"
+                          >
                             <UserPlus className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleEdit(group)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(group)}
+                            className="border-2 hover:border-indigo-600 hover:bg-indigo-50"
+                            title="Edit Group"
+                          >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(group.id)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(group.id)}
+                            className="border-2 hover:border-red-600 hover:bg-red-50"
+                            title="Delete Group"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -388,7 +499,7 @@ export default function AdminGroupsPage() {
         <Dialog open={isManageStudentsOpen} onOpenChange={setIsManageStudentsOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Manage Students - {selectedGroup?.name}</DialogTitle>
+              <DialogTitle className="text-xl">Manage Students - {selectedGroup?.name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">Select students to add or remove from this group</div>
@@ -398,7 +509,7 @@ export default function AdminGroupsPage() {
                   return (
                     <div
                       key={student.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                      className="flex items-center justify-between p-3 border-2 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div>
                         <div className="font-medium">{student.name}</div>
@@ -408,6 +519,7 @@ export default function AdminGroupsPage() {
                         size="sm"
                         variant={isInGroup ? "destructive" : "default"}
                         onClick={() => handleStudentToggle(student.id)}
+                        className={isInGroup ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"}
                       >
                         {isInGroup ? (
                           <>
@@ -429,6 +541,133 @@ export default function AdminGroupsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Attendance Dialog */}
+        <Dialog open={isAttendanceDialogOpen} onOpenChange={setIsAttendanceDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <ClipboardList className="w-6 h-6 text-indigo-600" />
+                Attendance - {attendanceGroup?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="attendanceDate" className="text-sm font-semibold text-gray-700">
+                    Date
+                  </Label>
+                  <Input
+                    id="attendanceDate"
+                    type="date"
+                    value={attendanceDate}
+                    onChange={(e) => setAttendanceDate(e.target.value)}
+                    className="border-2 border-gray-200 hover:border-indigo-300 transition-colors"
+                  />
+                </div>
+                <div className="flex gap-2 items-end">
+                  <Badge className="bg-green-100 text-green-800 border-green-300 px-3 py-1">
+                    Present: {Object.values(currentAttendance).filter((s) => s === "present").length}
+                  </Badge>
+                  <Badge className="bg-red-100 text-red-800 border-red-300 px-3 py-1">
+                    Absent: {Object.values(currentAttendance).filter((s) => s === "absent").length}
+                  </Badge>
+                </div>
+              </div>
+              <div className="max-h-96 overflow-y-auto border-2 rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="font-semibold text-gray-700">Student Name</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-700">Status</TableHead>
+                      <TableHead className="text-right font-semibold text-gray-700">Mark Attendance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attendanceStudents.map((student) => (
+                      <TableRow key={student.id} className="hover:bg-gray-50 transition-colors">
+                        <TableCell className="font-medium">{student.name}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            className={
+                              currentAttendance[student.id] === "present"
+                                ? "bg-green-100 text-green-800 border-green-300"
+                                : currentAttendance[student.id] === "late"
+                                  ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                  : "bg-red-100 text-red-800 border-red-300"
+                            }
+                          >
+                            {currentAttendance[student.id] || "Absent"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant={currentAttendance[student.id] === "present" ? "default" : "outline"}
+                              onClick={() => handleAttendanceChange(student.id, "present")}
+                              className={
+                                currentAttendance[student.id] === "present"
+                                  ? "bg-green-600 hover:bg-green-700"
+                                  : "border-2 hover:border-green-600 hover:bg-green-50"
+                              }
+                            >
+                              Present
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={currentAttendance[student.id] === "late" ? "default" : "outline"}
+                              onClick={() => handleAttendanceChange(student.id, "late")}
+                              className={
+                                currentAttendance[student.id] === "late"
+                                  ? "bg-yellow-600 hover:bg-yellow-700"
+                                  : "border-2 hover:border-yellow-600 hover:bg-yellow-50"
+                              }
+                            >
+                              Late
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={currentAttendance[student.id] === "absent" ? "default" : "outline"}
+                              onClick={() => handleAttendanceChange(student.id, "absent")}
+                              className={
+                                currentAttendance[student.id] === "absent"
+                                  ? "bg-red-600 hover:bg-red-700"
+                                  : "border-2 hover:border-red-600 hover:bg-red-50"
+                              }
+                            >
+                              Absent
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsAttendanceDialogOpen(false)} className="border-2">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveAttendance}
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                >
+                  Save Attendance
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Attendance History Dialog */}
+        {selectedGroupForView && (
+          <AttendanceTableDialog
+            open={isViewAttendanceOpen}
+            onOpenChange={setIsViewAttendanceOpen}
+            group={selectedGroupForView}
+          />
+        )}
+
         {/* Password Confirmation Dialog */}
         <PasswordConfirmDialog
           open={deletingGroupId !== null}
@@ -439,9 +678,11 @@ export default function AdminGroupsPage() {
         />
 
         {groups.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <p className="text-gray-500">No groups found yet. Create your first group!</p>
+          <Card className="border-2 border-dashed border-gray-300 bg-gradient-to-br from-gray-50 to-white">
+            <CardContent className="text-center py-16">
+              <BookOpen className="size-20 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg font-medium">No groups found yet</p>
+              <p className="text-gray-400 text-sm mt-2">Create your first group to get started</p>
             </CardContent>
           </Card>
         )}

@@ -49,7 +49,6 @@ export function PasswordConfirmDialog({
     onConfirm()
     setPassword("")
     onOpenChange(false)
-    toast.success("Action confirmed successfully")
   }
 
   const handleCancel = () => {

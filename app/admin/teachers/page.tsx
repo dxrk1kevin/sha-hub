@@ -10,6 +10,7 @@ import { AdminLayout } from "@/components/layouts/admin-layout"
 import type { Teacher } from "@/types/teacher-types"
 import { TeacherFormDialog, TeachersTable } from "./fragments"
 import { PasswordConfirmDialog } from "@/components/password-confirm-dialog"
+import { toast } from "sonner"
 
 type TeacherFormValues = {
   name: string
@@ -53,15 +54,18 @@ export default function TeachersPage() {
 
       if (teacherToEdit) {
         updateTeacher(teacherToEdit.id, teacherData)
+        toast.success(`Teacher ${teacherData.name} updated successfully`)
       } else {
         const { joinDate, ...dataForAdd } = teacherData
         addTeacher(dataForAdd as any)
+        toast.success(`Teacher ${teacherData.name} added successfully`)
       }
 
       setIsDialogOpen(false)
       setEditingTeacher(null)
     } catch (error) {
       console.error("[v0] Error submitting teacher form:", error)
+      toast.error("Failed to save teacher. Please try again.")
     }
   }
 
@@ -76,7 +80,11 @@ export default function TeachersPage() {
 
   const confirmDelete = () => {
     if (deletingTeacherId) {
+      const teacher = teachers.find((t) => t.id === deletingTeacherId)
       deleteTeacher(deletingTeacherId)
+      if (teacher) {
+        toast.success(`Teacher ${teacher.name} deleted successfully`)
+      }
       setDeletingTeacherId(null)
     }
   }

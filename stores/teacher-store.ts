@@ -27,6 +27,12 @@ interface TeacherState {
   addAttendanceRecord: (record: Omit<AttendanceRecord, "id">) => void
   updateAttendanceRecord: (id: string, record: Partial<AttendanceRecord>) => void
   getAttendanceForLesson: (lessonId: string) => AttendanceRecord[]
+  getAttendanceForGroupByDate: (groupId: string) => Record<string, Record<string, AttendanceRecord>>
+  saveAttendanceForDate: (
+    groupId: string,
+    date: string,
+    attendance: Record<string, "present" | "absent" | "late">,
+  ) => void
 
   // Points
   addStudentPoint: (point: Omit<StudentPoint, "id">) => void
@@ -148,6 +154,59 @@ export const useTeacherStore = create<TeacherState>()(
       },
       getAttendanceForLesson: (lessonId) => {
         return get().attendanceRecords.filter((record) => record.lessonId === lessonId)
+      },
+      getAttendanceForGroupByDate: (groupId) => {
+        const records = get().attendanceRecords.filter((record) => record.groupId === groupId)
+        // Group by date then by student
+        const byDate: Record<string, Record<string, AttendanceRecord>> = {}
+        records.forEach((record) => {
+          if (!byDate[record.date]) {
+            byDate[record.date] = {}
+          }
+          byDate[record.date][record.studentId] = record
+        })
+        return byDate
+      },
+      saveAttendanceForDate: (groupId, date, attendance) => {
+        const existingRecords = get().attendanceRecords.filter((r) => r.groupId === groupId && r.date === date)
+
+        // Update existing records and add new ones
+        Object.entries(attendance).forEach(([studentId, status]) => {
+          const existingRecord = existingRecords.find((r) => r.studentId === studentId)
+          if (existingRecord) {
+            // Update existing record
+            set((state) => ({
+              attendanceRecords: state.attendanceRecords.map((record) =>
+                record.id === existingRecord.id ? { ...record, status } : record,
+              ),
+            }))
+          } else {
+            // Add new record
+            const newRecord: AttendanceRecord = {
+              id: `a${Date.now()}_${studentId}`,
+              lessonId: "", // Can be linked to lesson if needed
+              groupId,
+              studentId,
+              date,
+              status,
+            }
+            set((state) => ({
+              attendanceRecords: [...state.attendanceRecords, newRecord],
+            }))
+          }
+        })
+
+        set((state) => ({
+          teacherActivities: [
+            {
+              id: `ta${Date.now()}`,
+              type: "attendance",
+              message: `Attendance saved for ${date}`,
+              timestamp: "Just now",
+            },
+            ...state.teacherActivities,
+          ],
+        }))
       },
 
       // Points
